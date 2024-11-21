@@ -1,6 +1,7 @@
 #include <iostream>
-#include "../src/alloc.h"
+#include "../src/memory.h"
 #include <string>
+#include <vector>
 
 void test_simple_alloc() {
     // 定义分配器
@@ -22,10 +23,9 @@ void test_simple_alloc() {
     alloc.deallocate(int_ptr);
     std::cout << "Deallocated memory for int." << std::endl;
 
-    // 测试复杂类型
-    stl::simple_alloc<std::string> string_alloc;
-    // using string_Alloc = typename stl::simple_alloc<int>::rebind<std::string>::other;
-    // string_Alloc string_alloc;
+    // 测试rebind功能
+    using string_Alloc = typename stl::simple_alloc<int>::template rebind<std::string>::other;
+    string_Alloc string_alloc;
 
     // 分配内存
     std::string* str_ptr = string_alloc.allocate();
@@ -38,11 +38,27 @@ void test_simple_alloc() {
     // 销毁对象
     string_alloc.destroy(str_ptr);
     std::cout << "Destroyed std::string object." << std::endl;
-    std::cout << "Constructed std::string with value: " << *str_ptr << std::endl;
 
     // 释放内存
     string_alloc.deallocate(str_ptr);
     std::cout << "Deallocated memory for std::string." << std::endl;
+
+    // 测试STL模板vector
+    std::vector<int, stl::simple_alloc<int>> int_vector;
+    std::cout << "Construct int_vector with simple_alloc." << std::endl;
+    int_vector.push_back(1);
+    int_vector.push_back(2);
+    int_vector.push_back(3);
+    std::cout << "Size of int_vector: " << int_vector.size() << std::endl;
+
+    std::cout << "Print int_vector: ";
+    for (auto it = int_vector.begin(); it != int_vector.end(); ++it) {
+        std::cout << *it << " ";
+    }
+    std::cout << std::endl;
+
+    int_vector.clear();
+    std::cout << "Size of int_vector after clear: " << int_vector.size() << std::endl;
 }
 
 int main() {
