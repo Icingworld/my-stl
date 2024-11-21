@@ -1,317 +1,222 @@
 #ifndef __LIST_H__
 #define __LIST_H__
 
+#include "memory.h"
+
 namespace stl
 {
 
-template <typename T>
+template <typename T, class Alloc = simple_alloc<T>>
 class list
 {
-public:
-    using value_type = T;
-    using pointer = value_type*;
-    using reference = value_type&;
-    using const_pointer = const value_type*;
-    using const_reference = const value_type&;
-
-private:
-    /**
-     * @brief 节点
-     */
-    class node
+protected:
+    // 链表节点类
+    class __list_node
     {
     public:
-        using node_pointer = node*;
+        // 嵌套类型
+        using value_type = T;
+        using node_pointer = __list_node*;
     
     public:
-        value_type data;
         node_pointer prev;
         node_pointer next;
+        value_type data;
     
     public:
-        node()
-            : prev(nullptr), next(nullptr) 
-        {}
-        node(const value_type & data)
-            : data(data), prev(nullptr), next(nullptr)
-        {}
-        node(value_type && data)
-            : data(std::move(data)), prev(nullptr), next(nullptr)
-        {}
+        __list_node() : prev(nullptr), next(nullptr) {}
+        __list_node(const value_type & value) : prev(nullptr), next(nullptr), data(value) {}
+        __list_node(value_type && value) : prev(nullptr), next(nullptr), data(std::move(value)) {}
+        __list_node(const __list_node & other) : prev(other.prev), next(other.next), data(other.data) {}
+        __list_node(__list_node && other) : prev(other.prev), next(other.next), data(std::move(other.data)) {}
+
+        ~__list_node() = default;
     };
 
-    using node_pointer = typename node::node_pointer;
-
-    node_pointer head;  // 哨兵节点，不存储数据
-    node_pointer tail;  // 哨兵节点
-    int _size;
-
 public:
-    /**
-     * @brief 迭代器
-     */
-    class iterator
+    // 链表迭代器
+    class __list_iterator
     {
-    private:
-        friend class list;
-        node_pointer _node; // 当前节点
     public:
-        iterator()
-            : _node(nullptr)
-        {}
-        iterator(node_pointer node)
-            : _node(node)
-        {}
-        iterator(const iterator & other)
-            : _node(other._node)
-        {}
-        iterator(iterator && other)
-            : _node(std::move(other._node))
-        {}
-        ~iterator()
-        {}
+        // 嵌套类型
+        using value_type = T;
+        friend class list;
+    
+    protected:
+        using reference = value_type&;
+        using pointer = value_type*;
+        using node_pointer = __list_node*;
+        using self = __list_iterator;
+        // using iterator_category = stl::bidirectional_iterator_tag;
+    
+    protected:
+        node_pointer _node;
     
     public:
-        iterator & operator=(const iterator & other)
-        {
-            if (this != &other)
-                _node = other._node;
-            return *this;
-        }
-        iterator & operator=(iterator && other)
-        {
-            if (this != &other)
-                _node = std::move(other._node);
-            return *this;
-        }
+        __list_iterator()
+            : _node(nullptr)
+        {}
+        __list_iterator(node_pointer node)
+            : _node(node)
+        {}
+        __list_iterator(const __list_iterator & other)
+            : _node(other._node)
+        {}
 
-        /**
-         * @brief 解引用
-         */
-        reference operator*()
-        {
-            return _node->data;
-        }
-        /**
-         * @brief 解引用
-         */
-        pointer operator->()
-        {
-            return &(_node->data);
-        }
-
-        /**
-         * @brief 等于运算符
-         */
-        bool operator==(const iterator & other) const
+        bool operator==(const __list_iterator & other) const
         {
             return _node == other._node;
         }
-        /**
-         * @brief 不等于运算符
-         */
-        bool operator!=(const iterator & other) const
+
+        bool operator!=(const __list_iterator & other) const
         {
             return _node != other._node;
         }
 
-        /**
-         * @brief 前置递增
-         */
-        iterator & operator++()
+        reference operator*() const
+        {
+            return _node->data;
+        }
+
+        pointer operator->() const
+        {
+            return &(operator*());
+        }
+
+        self & operator++()
         {
             _node = _node->next;
             return *this;
         }
-        /**
-         * @brief 后置递增
-         */
-        iterator operator++(int)
+
+        self operator++(int)
         {
-            iterator tmp = *this;
-            ++(*this);              // 改变当前迭代器指向的节点
-            return tmp;             // 返回前置递增前的迭代器
+            self temp = *this;
+            ++*this;
+            return temp;
         }
 
-        /**
-         * @brief 前置递减
-         */
-        iterator & operator--()
+        self & operator--()
         {
             _node = _node->prev;
             return *this;
         }
 
-        /**
-         * @brief 后置递减
-         */
-        iterator operator--(int)
+        self operator--(int)
         {
-            iterator tmp = *this;
-            --(*this);
-            return tmp;
+            self temp = *this;
+            --*this;
+            return temp;
         }
     };
 
 public:
+    // 嵌套类型
+    using value_type = T;
+    using reference = value_type&;
+    using const_reference = const value_type&;
+    using pointer = value_type*;
+    using const_pointer = const value_type*;
+    using iterator = __list_iterator;
+    using node = __list_node;
+    using node_pointer = node*;
+    using size_type = size_t;
+    using value_type_allocator = Alloc;
+    using list_node_allocator = typename Alloc::template rebind<node>::other;
+
+protected:
+    node_pointer dummy;     // 虚拟尾节点
+    list_node_allocator __list_node_allocator;
+
+protected:
+    // 提供链表内部使用的节点操作
+    node_pointer get_node()
+    {
+        return __list_node_allocator.allocate();
+    }
+
+    void put_node(node_pointer p)
+    {
+        __list_node_allocator.deallocate(p);
+    }
+
+    node_pointer create_node(const value_type & value)
+    {
+        node_pointer p = get_node();
+        __list_node_allocator.construct(p, value);
+        return p;
+    }
+
+    void destroy_node(node_pointer p)
+    {
+        __list_node_allocator.destroy(p);
+    }
+
+public:
+    // 构造函数
     list()
-        : head(new node), tail(new node), _size(0)
     {
-        head->next = tail;
-        tail->prev = head;
+        // 一个空节点
+        dummy = get_node();
+        dummy->prev = dummy;
+        dummy->next = dummy;
     }
 
-    ~list()
+public:
+    // 对外接口
+    iterator insert(iterator pos, const T & value)
     {
-        clear();
-        delete head;
-        delete tail;
+        node_pointer temp = create_node(value);
+        temp->prev = pos._node->prev;
+        temp->next = pos._node;
+        pos._node->prev->next = temp;
+        pos._node->prev = temp;
+        return iterator(temp);
     }
 
-    /**
-     * @brief 返回第一个元素
-     */
+    iterator push_front(const T & value)
+    {
+        return insert(begin(), value);
+    }
+
+    iterator push_back(const T & value)
+    {
+        return insert(end(), value);
+    }
+
+    iterator begin()
+    {
+        return ++iterator(dummy);
+    }
+
+    iterator end()
+    {
+        return iterator(dummy);
+    }
+
+    bool empty()
+    {
+        return begin() == end();
+    }
+
+    size_type size()
+    {
+        size_type _size = 0;
+        // 计算迭代器距离
+        return _size;
+    }
+
     reference front()
     {
         return *begin();
     }
 
-    /**
-     * @brief 返回最后一个元素
-     */
     reference back()
     {
         return *(--end());
     }
-
-    /**
-     * @brief 返回指向第一个元素的迭代器
-     */
-    iterator begin()
-    {
-        return iterator(head->next);
-    }
-
-    /**
-     * @brief 返回指向最后一个元素后一个节点的迭代器
-     */
-    iterator end()
-    {
-        return iterator(tail);
-    }
-
-    bool empty() const
-    {
-        return _size == 0;
-    }
-
-    size_t size() const
-    {
-        return _size;
-    }
-
-    /**
-     * @brief 清空链表
-     */
-    void clear()
-    {
-        while (!empty()) {
-            pop_front();
-        }
-    }
-
-    /**
-     * @brief 删除指定位置的节点
-     */
-    iterator erase(iterator pos)
-    {
-        iterator tmp = pos;
-        ++tmp;
-        pos._node->prev->next = pos._node->next;
-        pos._node->next->prev = pos._node->prev;
-        delete pos._node;
-        --_size;
-        return tmp;
-    }
-
-    /**
-     * @brief 在指定位置插入节点
-     */
-    void insert(iterator position, const_reference data)
-    {
-        insert_after(position, data);
-    }
-    void insert(iterator position, value_type && data)
-    {
-        insert_after(position, std::move(data));
-    }
-
-    /**
-     * @brief 在链表头部插入节点
-     */
-    template <typename U>
-    void push_front(U && data)
-    {
-        insert_after(--begin(), std::forward<U>(data));
-    }
-
-    /**
-     * @brief 在链表尾部插入节点
-     */
-    template <typename U>
-    void push_back(U && data)
-    {
-        insert_after(--end(), std::forward<U>(data));
-    }
-
-    /**
-     * @brief 删除链表头部节点
-     */
-    void pop_front()
-    {
-        // 判断是否为空
-        if (_size == 0) {
-            return;
-        }
-        erase(begin());
-    }
-
-    /**
-     * @brief 删除链表尾部节点
-     */
-    void pop_back()
-    {
-        // 判断是否为空
-        if (_size == 0) {
-            return;
-        }
-        erase(--end());
-    }
-
-    void swap(list & other)
-    {
-        std::swap(head, other.head);
-        std::swap(tail, other.tail);
-        std::swap(_size, other._size);
-    }
-
-private:
-    /**
-     * @brief  在pos之后插入节点
-     */
-    template <typename U>
-    void insert_after(iterator pos, U && data)
-    {
-        node_pointer new_node = new node(std::forward<U>(data));
-        new_node->next = pos._node->next;
-        new_node->prev = pos._node;
-        pos._node->next->prev = new_node;
-        pos._node->next = new_node;
-        ++_size;
-    }
-
 };
 
-}
+} // namespace stl
 
 #endif
