@@ -7,159 +7,117 @@ namespace stl
 {
 
 /**
- * @brief 默认分配器
- * @details 全部使用new和delete
+ * @brief 分配器
+ * @link https://zh.cppreference.com/w/cpp/memory/allocator
  */
 template <class T>
-class __default_allocator
+class allocator
 {
 public:
+    // 嵌套类型
     using value_type = T;
-    using pointer = T*;
-    using size_type = size_t;
-
-public:
-    /**
-     * @brief 重新绑定，用于在simple_alloc中实现rebind
-     */
-    template <typename U>
-    class __rebind
-    {
-    public:
-        using other = __default_allocator<U>;
-    };
-
-    /**
-     * @brief 分配n字节的内存
-     * @param n 字节数
-     */
-    static pointer __allocate(size_type n)
-    {
-        if (n > __max_size())   // 超出最大尺寸
-            throw std::bad_alloc();
-        return static_cast<pointer>(::operator new(n));
-    }
-
-    /**
-     * @brief 释放内存
-     * @param ptr 内存指针
-     * @param n 字节数（忽略）
-     */
-    static void __deallocate(pointer ptr, size_type n)
-    {
-        (void)n;    // 忽略n
-        ::operator delete(ptr);
-    }
-
-    template <typename U, typename... Args>
-    static U * __construct(U * ptr, Args&&... args)
-    {
-        // 定位new返回void *
-        return static_cast<U *>(::new(ptr) U(std::forward<Args>(args)...));
-    }
-
-    template <typename U>
-    static void __destroy(U * ptr)
-    {
-        ptr->~U();
-    }
-
-    static size_type __max_size()
-    {
-        return std::numeric_limits<std::size_t>::max() / sizeof(value_type);
-    }
-};
-
-/**
- * @brief 简单分配器
- * @details 分配器的封装类，根据传入的分配器模板选择分配方式
- */
-template <class T, class Alloc = __default_allocator<T>>
-class simple_alloc
-{
-public:
-    // 必须的嵌套类型
-    using value_type = T;
-    // 可选的嵌套类型
-    using void_pointer = void*;
     using pointer = T*;
     using const_pointer = const T*;
+    using reference = T&;
+    using const_reference = const T&;
     using size_type = std::size_t;
     using difference_type = std::ptrdiff_t;
+    using propagate_on_container_move_assignment = std::true_type;
+    using is_always_equal = std::true_type;
 
 public:
-    simple_alloc() noexcept = default;
-    simple_alloc(const simple_alloc &) noexcept = default;
-    /**
-     * @brief rebind拷贝构造
-     */
-    template <typename U>
-    simple_alloc(const simple_alloc<U, typename Alloc::template __rebind<U>::other> &) noexcept {}
+    allocator() noexcept = default;
 
-    ~simple_alloc() noexcept = default;
+    allocator(const allocator & other) noexcept = default;
+
+    template <typename U>
+    allocator(const allocator<U> & other) noexcept
+    {}
+
+    ~allocator() = default;
 
     template <typename U>
     class rebind
     {
     public:
-        // 需要传入新模板参数的分配器类，而不是使用原来的Alloc(即__default_allocator<T>)
-        using other = simple_alloc<U, typename Alloc::template __rebind<U>::other>;
+        using other = allocator<U>;
     };
-
-    pointer allocate()
-    {
-        return allocate(1);
-    }
 
     /**
      * @brief 分配n个元素的内存
      * @param n 元素个数
+     * @param hint 会在hint附近分配内存，忽略
      */
-    pointer allocate(size_type n, const void_pointer hint = nullptr)
+    pointer allocate(size_type n, const void * hint = nullptr)
     {
-        (void)hint; // 忽略hint
-        return n == 0 ? nullptr : Alloc::__allocate(n * sizeof(value_type));
+        (void)hint;
+        if (n > max_size())   // 超出最大尺寸
+            throw std::bad_array_new_length();
+        return n == 0 ? nullptr : static_cast<pointer>(::operator new(n * sizeof(value_type)));
     }
 
-    void deallocate(pointer p)
+    /**
+     * @brief 释放由allocate分配的内存
+     * @param ptr 要释放的内存指针
+     * @param n 元素个数，忽略
+     */
+    void deallocate(pointer ptr, size_type n = 0)
     {
-        deallocate(p, 1);
-    }
-
-    void deallocate(pointer p, size_type n)
-    {
-        if (p == nullptr) return;
-        if (n == 0) return;
-        Alloc::__deallocate(p, n * sizeof(value_type));
+        (void)n;
+        if (ptr == nullptr) return;
+        ::operator delete(ptr);
     }
 
     /**
      * @brief 构造对象
+     * @param ptr 要构造的内存指针
+     * @param args 构造函数参数包
      * @details 可选
      */
     template <typename U, typename... Args>
-    pointer construct(U * p, Args&&... args)
+    pointer construct(U * ptr, Args&&... args)
     {
-        return Alloc::__construct(p, std::forward<Args>(args)...);
+        // 定位new返回void *
+        return static_cast<U *>(::new(ptr) U(std::forward<Args>(args)...));
     }
 
     /**
      * @brief 销毁对象
+     * @param ptr 要销毁的内存指针
      * @details 可选
      */
     template <typename U>
-    void destroy(U * p)
+    void destroy(U * ptr)
     {
-        Alloc::__destroy(p);
+        ptr->~U();
     }
 
     size_type max_size() const noexcept
     {
-        return Alloc::__max_size();
+        // https://zh.cppreference.com/w/cpp/memory/allocator/max_size
+        return std::numeric_limits<std::size_t>::max() / sizeof(value_type);
     }
 
-    bool operator==(const simple_alloc &) const noexcept { return true; }
-    bool operator!=(const simple_alloc &) const noexcept { return false; }
+    pointer address(reference r) const noexcept
+    {
+        return &r;
+    }
+
+    const_pointer address(const_reference r) const noexcept
+    {
+        return &r;
+    }
+
+    bool operator==(const allocator & other) const noexcept
+    {   
+
+        return true;    // 分配器默认无状态，所以默认相等
+    }
+    
+    bool operator!=(const allocator & other) const noexcept
+    {
+        return false;
+    }
 };
 
 } // namespace stl
