@@ -5,10 +5,10 @@
 
 void test_simple_alloc() {
     // 定义分配器
-    stl::simple_alloc<int> alloc;
+    stl::allocator<int> alloc;
 
     // 分配内存
-    int* int_ptr = alloc.allocate();
+    int* int_ptr = alloc.allocate(1);
     std::cout << "Memory allocated for int." << std::endl;
 
     // 构造对象
@@ -24,11 +24,11 @@ void test_simple_alloc() {
     std::cout << "Deallocated memory for int." << std::endl;
 
     // 测试rebind功能
-    using string_Alloc = typename stl::simple_alloc<int>::template rebind<std::string>::other;
+    using string_Alloc = typename stl::allocator<int>::template rebind<std::string>::other;
     string_Alloc string_alloc;
 
     // 分配内存
-    std::string* str_ptr = string_alloc.allocate();
+    std::string* str_ptr = string_alloc.allocate(1);
     std::cout << "Memory allocated for std::string." << std::endl;
 
     // 构造对象
@@ -44,7 +44,7 @@ void test_simple_alloc() {
     std::cout << "Deallocated memory for std::string." << std::endl;
 
     // 测试STL模板vector
-    std::vector<int, stl::simple_alloc<int>> int_vector;
+    std::vector<int, stl::allocator<int>> int_vector;
     std::cout << "Construct int_vector with simple_alloc." << std::endl;
     int_vector.push_back(1);
     int_vector.push_back(2);
