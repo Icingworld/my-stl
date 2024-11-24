@@ -2,6 +2,8 @@
 #define __MEMORY_H__
 
 #include <limits>
+#include <stdexcept>
+#include <type_traits>
 
 namespace stl
 {
@@ -118,6 +120,30 @@ public:
     {
         return false;
     }
+};
+
+/**
+ * @brief allocator萃取机
+ * @link https://zh.cppreference.com/w/cpp/memory/allocator_traits
+ */
+template <class Alloc>
+class allocator_traits
+{
+public:
+    // 必须的
+    using allocator_type = Alloc;
+    using value_type = typename allocator_type::value_type;
+    // 可选的
+    using pointer = typename allocator_type::pointer;
+    using const_pointer = typename allocator_type::const_pointer;
+    using void_pointer = typename allocator_type::void_pointer;
+    using const_void_pointer = typename allocator_type::const_void_pointer;
+    using difference_type = typename allocator_type::difference_type;
+    using size_type = typename allocator_type::size_type;
+    using propagate_on_container_copy_assignment = typename allocator_type::propagate_on_container_copy_assignment;
+    using propagate_on_container_move_assignment = typename allocator_type::propagate_on_container_move_assignment;
+    using propagate_on_container_swap = typename allocator_type::propagate_on_container_swap;
+    using is_always_equal = typename allocator_type::is_always_equal;
 };
 
 } // namespace stl

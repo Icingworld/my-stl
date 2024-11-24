@@ -2,6 +2,7 @@
 #define __LIST_H__
 
 #include <limits>
+#include <iostream>
 #include "memory.h"
 
 namespace stl
@@ -68,7 +69,7 @@ public:
         using const_pointer = const value_type*;
         using node_pointer = __list_node*;
         using self = __list_iterator;
-        // using iterator_category = stl::bidirectional_iterator_tag;
+        using iterator_category = std::bidirectional_iterator_tag;
     
     protected:
         node_pointer _node;
@@ -86,18 +87,18 @@ public:
 
         ~__list_iterator() = default;
 
-        __list_iterator & operator=(const __list_iterator & other)
+        self & operator=(const self & other)
         {
             _node = other._node;
             return *this;
         }
 
-        bool operator==(const __list_iterator & other) const
+        bool operator==(const self & other) const
         {
             return _node == other._node;
         }
 
-        bool operator!=(const __list_iterator & other) const
+        bool operator!=(const self & other) const
         {
             return _node != other._node;
         }
@@ -160,7 +161,7 @@ public:
     using pointer = typename Alloc::pointer;
     using const_pointer = typename Alloc::const_pointer;
     using iterator = __list_iterator;
-    using const_iterator = const __list_iterator;
+    using const_iterator = const iterator;
 
 protected:
     using node = __list_node;
@@ -511,22 +512,31 @@ public:
     template <class Compare>
     void sort(Compare comp)
     {
-        // 使用归并排序
+        sort_list(begin(), --end(), comp);
     }
 
 protected:
     // 提供链表内部使用的节点操作
     
+    /**
+     * @brief 分配一个节点的内存
+     */
     node_pointer get_node()
     {
         return __list_node_allocator.allocate(1);
     }
 
+    /**
+     * @brief 释放一个节点的内存
+     */
     void put_node(node_pointer ptr)
     {
         __list_node_allocator.deallocate(ptr);
     }
 
+    /**
+     * @brief 创建一个节点
+     */
     node_pointer create_node(const value_type & value)
     {
         node_pointer p = get_node();
@@ -534,12 +544,99 @@ protected:
         return p;
     }
 
+    /**
+     * @brief 销毁一个节点
+     */
     void destroy_node(node_pointer ptr)
     {
         __list_node_allocator.destroy(ptr);
         put_node(ptr);
     }
+
+    /**
+     * @brief 寻找中间节点
+     * @details 左闭右开
+     */
+    iterator find_middle(iterator first, iterator last)
+    {
+        iterator slow = first, fast = first;
+        while (fast != last && ++fast != last) {
+            ++slow;
+            ++fast;
+        }
+        std::cout << "middle: " << *slow << std::endl;
+        return slow;
+    }
+
+    /**
+     * @brief 合并两个有序链表
+     */
+    template <class Compare>
+    iterator merge_list(iterator first1, iterator last1, iterator first2, iterator last2, Compare comp)
+    {
+        // 使用链表的 dummy 节点直接维护边界
+        node_pointer tail = first1._node->prev; // 初始时是链表的前置节点
+        iterator result = first1;              // 合并后的头节点
+
+        // 合并两个子链表
+        while (first1 != last1 && first2 != last2) {
+            if (comp(*first1, *first2)) {
+                tail->next = first1._node;
+                first1._node->prev = tail;
+                ++first1;
+            } else {
+                tail->next = first2._node;
+                first2._node->prev = tail;
+                ++first2;
+            }
+            tail = tail->next;
+        }
+
+        // 连接剩余部分
+        while (first1 != last1) {
+            tail->next = first1._node;
+            first1._node->prev = tail;
+            ++first1;
+            tail = tail->next;
+        }
+        while (first2 != last2) {
+            tail->next = first2._node;
+            first2._node->prev = tail;
+            ++first2;
+            tail = tail->next;
+        }
+
+        // 确保虚拟尾节点与链表末尾连接
+        tail->next = last2._node;
+        if (last2._node) last2._node->prev = tail;
+
+        return result;
+    }
+
+    template <class Compare>
+    iterator sort_list(iterator first, iterator last, Compare comp)
+    {
+        if (first == last)
+            return first;
+        iterator next = first;
+        ++next;
+        if (next == last)
+            return first;
+        
+        iterator middle = find_middle(first, last);
+        iterator middle_next = middle;
+        ++middle_next;
+
+        iterator left = sort_list(first, middle, comp);
+        iterator right = sort_list(middle_next, last, comp);
+
+        return merge_list(left, middle, right, last, comp);
+    }
 };
+
+// 非成员函数
+
+
 
 } // namespace stl
 

@@ -60,6 +60,9 @@ int main() {
     my_list.swap(my_list2);
     print(my_list);
     print(my_list2);
+    // sort
+    my_list2.sort();
+    print(my_list2);
     my_list.clear();
     std::cout << "my_list size: " << my_list.size() << std::endl;
     print(my_list);
