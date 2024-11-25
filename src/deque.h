@@ -382,7 +382,7 @@ public:
     {
         if (_start._cur != _start._first) {
             // 缓冲区还有空间，直接构造
-            allocator.construct(_start._cur, value);
+            allocator.construct(_start._cur - 1, value);
             --_start._cur;
         } else {
             // 缓冲区已满，需要扩展，这里调用辅助函数实现
@@ -397,7 +397,7 @@ public:
     {
         if (_start._cur != _start._first) {
             // 缓冲区还有空间，直接构造
-            allocator.construct(_start._cur, std::move(value));
+            allocator.construct(_start._cur - 1, std::move(value));
             --_start._cur;
         } else {
             // 缓冲区已满，需要扩展，这里调用辅助函数实现
@@ -495,7 +495,7 @@ protected:
         _map_size = std::max(static_cast<size_type>(8), static_cast<size_type>(node_count + 2));
         __allocate_map(_map_size);
         // 初始化两个迭代器，选择中间是因为双端队列需要在两端操作
-        // 经过这样设置，前端有一半的节点，后端有冗余的2个节点
+        // 经过这样设置，前端有一半的节点，后端至少有冗余的2个节点
         map_pointer start_node = _map + (_map_size - node_count) / 2;
         map_pointer finish_node = start_node + node_count;
         // 初始化范围内所有节点
@@ -515,8 +515,15 @@ protected:
     template <typename... Args>
     void __push_back_aux(Args&&... args)
     {
-        // 这里需要判断是否需要重新扩展map，如果还有剩余节点则直接构造并移动到下一个节点
+        // 这里需要判断是否需要重新扩展中控器，如果还有剩余节点则直接构造并移动到下一个节点
         __reserve_map_at_back();
+        // 不管是否扩展，下一个节点都是未申请内存的
+        *(_finish._node + 1) = __allocate_node();
+        // 在当前节点的最后一个位置构造元素
+        allocator.construct(_finish._cur, std::forward<Args>(args)...);
+        // 移动到下一个位置
+        _finish.set_node(_finish._node + 1);
+        _finish._cur = _finish._first;
     }
 
     /**
@@ -526,7 +533,13 @@ protected:
     template <typename... Args>
     void __push_front_aux(Args&&... args)
     {
-        
+        __reserve_map_at_front();
+        // 申请内存
+        *(_start._node - 1) = __allocate_node();
+        // 需要先移动到上一个节点的最后一个位置，再构造元素
+        _start.set_node(_start._node - 1);
+        _start._cur = _start._last - 1;
+        allocator.construct(_start._cur, std::forward<Args>(args)...);
     }
     
     /**
@@ -534,7 +547,10 @@ protected:
      */
     void __reserve_map_at_back(size_type n = 1)
     {
-        
+        // 如果后备的节点不够，则需要重新分配中控器
+        if (n + 1 > _map_size - (_finish._node - _map)) {
+            __reallocate_map(n, false);
+        }
     }
 
     /**
@@ -542,7 +558,49 @@ protected:
      */
     void __reserve_map_at_front(size_type n = 1)
     {
+        if (n > static_cast<size_type>(_start._node - _map)) {
+            __reallocate_map(n, true);
+        }
+    }
 
+    /**
+     * @brief 重新分配中控器
+     * @details 如果预留的节点足够，则只移动中控器中节点的位置，否则需要重新分配中控器内存
+     */
+    void __reallocate_map(size_type n, bool is_front)
+    {
+        const size_type old_num_nodes = _finish._node - _start._node + 1;
+        const size_type new_num_nodes = old_num_nodes + n;
+        map_pointer new_start;
+
+        if (_map_size > 2 * new_num_nodes) {
+            // 预留的节点足够，计算新的起始位置
+            new_start = _map + (_map_size - new_num_nodes) / 2 + (is_front ? n : 0);
+            if (new_start < _start._node) {
+                // 需要向前移动
+                std::copy(_start._node, _finish._node + 1, new_start);
+            } else {
+                // 向后移动
+                std::copy_backward(_start._node, _finish._node + 1, new_start + old_num_nodes); // 注意第三个参数是结尾，因为要从后向前拷贝
+            }
+        } else {
+            // 预留的节点不够，需要重新申请内存，并拷贝数据到新的中控器
+            size_type new_map_size = _map_size + std::max(_map_size, n) + 2;    // 新空间至少是原来的两倍 + 2
+            // 申请一块新内存供新中控器使用
+            map_pointer new_map = map_allocator.allocate(new_map_size);
+            new_start = new_map + (new_map_size - new_num_nodes) / 2 + (is_front ? n : 0);
+            // 拷贝数据
+            std::copy(_start._node, _finish._node + 1, new_start);
+            // 释放旧中控器内存
+            map_allocator.deallocate(_map, _map_size);
+            // 设置新的中控器
+            _map = new_map;
+            _map_size = new_map_size;
+        }
+
+        // 设置新的起始和末尾迭代器
+        _start.set_node(new_start);
+        _finish.set_node(new_start + old_num_nodes - 1);
     }
 };
 

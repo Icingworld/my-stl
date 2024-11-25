@@ -6,3 +6,4 @@ build
 
 # test
 test/*.exe
+test/output
