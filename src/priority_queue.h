@@ -1,6 +1,8 @@
 #ifndef __PRIORITY_QUEUE_H__
 #define __PRIORITY_QUEUE_H__
 
+#include <functional>
+#include <algorithm>
 #include "vector.h"
 
 namespace stl
@@ -14,7 +16,7 @@ namespace stl
 template <class T, class Container = vector<T>, class Compare = std::less<typename Container::value_type>>
 class priority_queue
 {
-
+    public: 
 };
 
 }
