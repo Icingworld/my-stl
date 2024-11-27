@@ -46,6 +46,19 @@ public:
             : _cur(nullptr), _first(nullptr), _last(nullptr), _node(nullptr)
         {}
 
+        __deque_iterator(const self & other)
+            : _cur(other._cur), _first(other._first), _last(other._last), _node(other._node)
+        {}
+
+        self & operator=(const self & other)
+        {
+            _cur = other._cur;
+            _first = other._first;
+            _last = other._last;
+            _node = other._node;
+            return *this;
+        }
+
         bool operator==(const self & other) const
         {
             return _cur == other._cur;
@@ -400,26 +413,26 @@ public:
     iterator insert(const_iterator pos, size_type count, const value_type& value)
     {
         difference_type offset = pos - cbegin();
-        __insert_aux(pos, count, value);
+        __fill_insert(pos, count, value);
         return begin() + offset;
     }
 
     /**
      * @brief 在指定位置插入迭代器范围内的元素
      */
-    template <class InputIterator>
-    iterator insert(const_iterator pos, InputIterator first, InputIterator last)
-    {
+    // template <class InputIterator>
+    // iterator insert(const_iterator pos, InputIterator first, InputIterator last)
+    // {
 
-    }
+    // }
 
     /**
      * @brief 在指定位置插入initializer_list
      */
-    iterator insert(const_iterator pos, std::initializer_list<value_type> ilist)
-    {
-        return insert(pos, ilist.begin(), ilist.end());
-    }
+    // iterator insert(const_iterator pos, std::initializer_list<value_type> ilist)
+    // {
+    //     return insert(pos, ilist.begin(), ilist.end());
+    // }
 
     /**
      * @brief 在指定位置构造元素
@@ -427,7 +440,26 @@ public:
     template <class... Args>
     iterator emplace(const_iterator pos, Args&&... args)
     {
-
+        if (pos == begin()) {
+            // 这段代码和push_front的实现是一样的
+            if (_start._cur != _start._first) {
+                allocator.construct(_start._cur - 1, std::forward<Args>(args)...);
+                --_start._cur;
+            } else {
+                __push_front_aux(std::forward<Args>(args)...);
+            }
+            return begin();
+        } else if (pos == end()) {
+            if (_finish._cur != _finish._last - 1) {
+                allocator.construct(_finish._cur, std::forward<Args>(args)...);
+                ++_finish._cur;
+            } else {
+                __push_back_aux(std::forward<Args>(args)...);
+            }
+            return end() - 1;
+        } else {
+            return __insert_aux(pos, std::forward<Args>(args)...);
+        }
     }
 
     /**
@@ -865,7 +897,37 @@ protected:
     template <class... Args>
     iterator __insert_aux(iterator pos, size_type n, Args&&... args)
     {
+        value_type x(std::forward<Args>(args)...);
+        difference_type nums_before = pos - _start;
 
+        if (nums_before < static_cast<difference_type>(size() / 2)) {
+            // 前半部分插入
+            __reserve_map_at_front(n / __deque_buffer_size() + 1);  // 扩展中控器，传入缓冲区个数，而不是元素个数
+            iterator old_start = _start;
+            // 不能在这里计算new_start，因为前面的区域未分配，会发生未定义行为
+            pos = old_start + nums_before;
+            __create_nodes((old_start - n)._node, old_start._node);  // 初始化缓冲区
+            // 移动旧元素，因为向前移动且可能出现重叠，必须使用std::copy
+            // 参见https://zh.cppreference.com/w/cpp/algorithm/copy
+            iterator new_start = old_start - n;
+            std::copy(old_start, pos, new_start);
+            // 插入新的元素
+            std::fill(pos - n, pos, x);
+            _start = new_start; // 更新起始点
+        } else {
+            // 后半部分插入
+            __reserve_map_at_back(n / __deque_buffer_size() + 1);  // 扩展中控器
+            iterator old_finish = _finish;
+            __create_nodes(old_finish._node + 1, (old_finish + n)._node + 1);  // 初始化缓冲区
+            // 移动旧元素，只能用std::copy_backward
+            // 参见https://zh.cppreference.com/w/cpp/algorithm/copy_backward
+            iterator new_finish = old_finish + n;
+            std::copy_backward(pos, old_finish, new_finish);
+            // 插入新的元素
+            std::fill(pos, pos + n, x);
+            _finish = new_finish; // 更新结束点
+        }
+        return _start + nums_before; // 返回新插入元素的起始位置
     }
 
     /**

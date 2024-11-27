@@ -46,7 +46,7 @@ int main()
 
     deque.clear();
 
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 20; ++i) {
         deque.push_back(i);
     }
 
@@ -57,7 +57,14 @@ int main()
     std::cout << std::endl;
 
     int temp_value = 666;
-    deque.insert(deque.begin() + 2, temp_value);
+    deque.insert(deque.begin() + 2, 3, temp_value);
+
+    // deque.insert(deque.begin(), 3, temp_value);
+    // deque.insert(deque.end(), 3, temp_value);
+
+    deque.insert(deque.end() - 3, 5, temp_value);
+
+    deque.emplace(deque.begin() + 10, 777);
 
     std::cout << "deque elements: ";
     for (auto it = deque.begin(); it != deque.end(); ++it) {
