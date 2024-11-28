@@ -127,6 +127,6 @@ void swap(stack<T, Container>& x, stack<T, Container>& y)
     x.swap(y);
 }
 
-}
+} // namespace stl
 
 #endif

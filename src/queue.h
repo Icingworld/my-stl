@@ -137,6 +137,6 @@ void swap(queue<T, Container>& x, queue<T, Container>& y)
     x.swap(y);
 }
 
-}
+} // namespace stl
 
 #endif

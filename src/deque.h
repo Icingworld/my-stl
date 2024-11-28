@@ -997,6 +997,6 @@ void swap(deque<T, Alloc> & lhs, deque<T, Alloc> & rhs)
     lhs.swap(rhs);
 }
 
-}
+} // namespace stl
 
 #endif
