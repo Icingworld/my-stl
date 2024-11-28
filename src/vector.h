@@ -5,6 +5,7 @@
 #include <limits>
 #include <initializer_list>
 #include <stdexcept>
+#include <vector>
 #include "memory.h"
 
 namespace stl
@@ -512,7 +513,7 @@ public:
     /**
      * @brief 在尾部插入元素
      */
-    void push_back(const reference value)
+    void push_back(const value_type & value)
     {
         if (size() == capacity()) {
             reserve(capacity() == 0 ? 1 : capacity() * 2);
