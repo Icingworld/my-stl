@@ -117,6 +117,7 @@ class hash<std::nullptr_t>
 public:
     result_type operator()(const argument_type& key) const
     {
+        (void)key;
         return 0;   // nullptr_t的hash值为0
     }
 };
