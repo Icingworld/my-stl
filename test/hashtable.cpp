@@ -30,12 +30,18 @@ int main()
     auto count = h1.count(1);
     std::cout << count << std::endl;
 
-    for (int i = 0; i < 200; ++i) {
+    for (int i = 0; i < 20; ++i) {
         h1.insert_equal(stl::pair<const int, int>(1, i + 1));
     }
 
     count = h1.count(1);
     std::cout << count << std::endl;
+
+    auto pair = h1.equal_range(1);
+    for (auto it = pair.first; it != pair.second; ++it) {
+        std::cout << it->second << " ";
+    }
+    std::cout << std::endl;
 
     h1.clear();
 }

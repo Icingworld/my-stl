@@ -90,17 +90,17 @@ public:
 
     bool empty() const noexcept
     {
-        return begin() == end();
+        return _ht.empty();
     }
 
     size_type size() const noexcept
     {
-        return std::distance(begin(), end());
+        return _ht.size();
     }
 
     size_type max_size() const noexcept
     {
-        return max_bucket_count();
+        return _ht.max_size();
     }
 
     // 查找

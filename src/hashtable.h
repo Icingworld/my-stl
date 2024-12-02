@@ -72,7 +72,10 @@ public:
         using iterator_category = std::forward_iterator_tag;
 
         using self = __hashtable_iterator;
+        using const_self = const __hashtable_iterator;
         using node = __hashtable_node;
+
+        friend class hashtable;
     
     public:
         node* _node;            // 指向当前节点
@@ -123,7 +126,7 @@ public:
             _node = _node->_next;   // 尝试指向下一个节点
             if (_node == nullptr) {
                 // 不存在下一个节点，需要跳转到下一个桶
-                size_type index = _hashtable->bucket(old->_key) + 1;  // 下一个桶的索引，这是怎么算的，O(1)?
+                size_type index = _hashtable->_hash_key(old->_value) + 1;  // 下一个桶的索引，这是怎么算的，O(1)?
                 while (index < _hashtable->bucket_count() && _hashtable->_buckets[index] == nullptr) {
                     ++index;
                 }
@@ -134,6 +137,19 @@ public:
                 // 否则已经到达桶的末尾，保持为nullptr
             }
             return *this;
+        }
+
+        const_self& operator++() const
+        {
+            ++(*const_cast<self*>(this));   // 这。。。
+            return *this;
+        }
+
+        const_self operator++(int) const
+        {
+            const_self tmp = *this;
+            ++(*this);
+            return tmp;
         }
 
         self operator++(int)
@@ -175,6 +191,8 @@ public:
     using const_local_iterator = const __hashtable_local_iterator;
     using Node_Alloc = typename Alloc::template rebind<__hashtable_node>::other;
 
+    friend class __hashtable_iterator;
+
 protected:
     stl::vector<node *> _buckets;       // 哈希表桶
     Node_Alloc _node_allocator;         // 节点分配器
@@ -194,24 +212,69 @@ public:
     {}
 
 public:
+    // 迭代器
+
+    /**
+     * @brief 返回第一个有效元素的迭代器
+     */
     iterator begin()
     {
-
+        for (size_type index = 0; index < _buckets.size(); ++index) {
+            if (_buckets[index] != nullptr) {
+                return iterator(_buckets[index], this);
+            }
+        }
+        return end();
     }
 
     const_iterator begin() const
     {
-
+        for (size_type index = 0; index < _buckets.size(); ++index) {
+            if (_buckets[index] != nullptr) {
+                return const_iterator(_buckets[index], this);
+            }
+        }
+        return end();
     }
 
+    const_iterator cbegin() const
+    {
+        return begin();
+    }
+
+    /**
+     * @brief 返回一个空的迭代器
+     */
     iterator end()
     {
-
+        return iterator();
     }
 
     const_iterator end() const
     {
+        return const_iterator();
+    }
 
+    const_iterator cend() const
+    {
+        return end();
+    }
+
+    // 容量
+
+    bool empty() const
+    {
+        return _hashtable_elements == 0;
+    }
+
+    size_type size() const
+    {
+        return _hashtable_elements;
+    }
+
+    size_type max_size() const
+    {
+        return std::numeric_limits<size_type>::max();
     }
 
     /**
@@ -282,35 +345,7 @@ public:
         }
     }
 
-    /**
-     * @brief 查找key
-     * @details 这里需要更改一下，提高复用性
-     */
-    iterator find(const key_type & key)
-    {
-        size_type index = _hash_key(key);
-        node * first = _buckets[index];
-        while (first != nullptr) {
-            if (_equal(_extract_key(first->_value), key)) {
-                return iterator(first, this);
-            }
-            first = first->_next;
-        }
-        return end();
-    }
-
-    const_iterator find(const key_type & key) const
-    {
-        size_type index = _hash_key(key);
-        node * first = _buckets[index];
-        while (first != nullptr) {
-            if (_equal(_extract_key(first->_value), key)) {
-                return iterator(first, this);
-            }
-            first = first->_next;
-        }
-        return end();
-    }
+    // 查找
 
     mapped_type & at(const key_type & key)
     {
@@ -343,7 +378,7 @@ public:
     }
 
     /**
-     * @brief 返回键值为key的元素个数
+     * @brief 返回匹配特定键的元素数量
      */
     size_type count(const key_type & key) const
     {
@@ -358,6 +393,61 @@ public:
         }
         return _count;
     }
+
+    iterator find(const key_type & key)
+    {
+        size_type index = _hash_key(key);
+        node * first = _buckets[index];
+        while (first != nullptr) {
+            if (_equal(_extract_key(first->_value), key)) {
+                return iterator(first, this);
+            }
+            first = first->_next;
+        }
+        return end();
+    }
+
+    const_iterator find(const key_type & key) const
+    {
+        size_type index = _hash_key(key);
+        node * first = _buckets[index];
+        while (first != nullptr) {
+            if (_equal(_extract_key(first->_value), key)) {
+                return const_iterator(first, const_cast<hashtable *>(this));
+            }
+            first = first->_next;
+        }
+        return cend();
+    }
+
+    stl::pair<iterator, iterator> equal_range(const key_type & key)
+    {
+        iterator it = find(key);
+        iterator it2 = it;
+        if (it != end()) {
+            while (it2 != end() && _equal(_extract_key(*it2), key)) {
+                ++it2;
+            }
+        }
+        return stl::pair<iterator, iterator>(it, it2);
+    }
+
+    stl::pair<const_iterator, const_iterator> equal_range(const key_type & key) const
+    {
+        std::cout << "equal_range" << std::endl;
+        const_iterator it = find(key);
+        std::cout << "getval: " << it->second << std::endl;
+        const_iterator it2 = it;
+        std::cout << "getval2: " << it2->second << std::endl;
+        if (it != cend()) {
+            while (it2 != cend() && _equal(_extract_key(*it2), key)) {
+                ++it2;
+            }
+        }
+        return stl::pair<const_iterator, const_iterator>(it, it2);
+    }
+
+    // 桶接口
 
     /**
      * @brief 桶的数量
@@ -396,6 +486,8 @@ public:
     {
         return _hash_key(key);
     }
+
+    // 观察器
 
     hasher hash_function() const
     {
