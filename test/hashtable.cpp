@@ -43,5 +43,12 @@ int main()
     }
     std::cout << std::endl;
 
+    auto index = h1.bucket(1);
+    auto it4 = h1.begin(index);
+    for (; it4 != h1.end(index); ++it4) {
+        std::cout << it4->second << " ";
+    }
+    std::cout << std::endl;
+
     h1.clear();
 }

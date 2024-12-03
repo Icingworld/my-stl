@@ -2,6 +2,7 @@
 #define __HASHTABLE_H__
 
 #include <stdexcept>
+#include <cmath>
 #include "vector.h"
 #include "hash.h"
 #include "utility.h"
@@ -74,23 +75,22 @@ public:
         using self = __hashtable_iterator;
         using const_self = const __hashtable_iterator;
         using node = __hashtable_node;
-
-        friend class hashtable;
     
     public:
         node* _node;            // 指向当前节点
         hashtable* _hashtable;  // 指向所在的哈希表，用于向其他桶跳跃
 
     public:
+
         __hashtable_iterator()
             : _node(nullptr), _hashtable(nullptr)
         {}
 
-        __hashtable_iterator(node* node, hashtable* hst)
-            : _node(node), _hashtable(hst)
+        __hashtable_iterator(node* nd, hashtable* hst)
+            : _node(nd), _hashtable(hst)
         {}
 
-        ~__hashtable_iterator() = default;
+        virtual ~__hashtable_iterator() = default;
     
         self& operator=(const self& other)
         {
@@ -171,8 +171,51 @@ public:
     };
 
     class __hashtable_local_iterator
+        : public __hashtable_iterator
     {
+    public:
+        using self = __hashtable_local_iterator;
+        using const_self = const __hashtable_local_iterator;
+        using node = __hashtable_node;
 
+    public:
+        __hashtable_local_iterator()
+            : __hashtable_iterator()
+        {}
+
+        __hashtable_local_iterator(node* nd, hashtable* hst)
+            : __hashtable_iterator(nd, hst)
+        {}
+
+        ~__hashtable_local_iterator() = default;
+
+    public:
+        self& operator++()
+        {
+            node * old = __hashtable_iterator::_node;
+            __hashtable_iterator::_node = __hashtable_iterator::_node->_next;   // 尝试指向下一个节点
+            return *this;   // 迭代器是否相等只取决于node，所以如果_node == nullptr，那么一定和end()相等
+        }
+
+        const_self& operator++() const
+        {
+            ++(*const_cast<self*>(this));
+            return *this;
+        }
+
+        self operator++(int)
+        {
+            self tmp = *this;
+            ++(*this);
+            return tmp;
+        }
+
+        const_self operator++(int) const
+        {
+            const_self tmp = *this;
+            ++(*this);
+            return tmp;
+        }
     };
 
 public:
@@ -191,8 +234,6 @@ public:
     using const_local_iterator = const __hashtable_local_iterator;
     using Node_Alloc = typename Alloc::template rebind<__hashtable_node>::other;
 
-    friend class __hashtable_iterator;
-
 protected:
     stl::vector<node *> _buckets;       // 哈希表桶
     Node_Alloc _node_allocator;         // 节点分配器
@@ -200,10 +241,11 @@ protected:
     hasher _hash;                       // 哈希函数
     key_equal _equal;                   // 比较函数
     extract_key _extract_key;           // 提取key的函数
+    float _max_load_factor;             // 最大负载因子
 
 public:
     hashtable(size_type n, const hasher & hash, const key_equal & equal)
-        : _hashtable_elements(0), _hash(hash), _equal(equal), _extract_key(extract_key())   // key提取函数和键值对类型绑定，无法更改，所以不能传入
+        : _hashtable_elements(0), _hash(hash), _equal(equal), _extract_key(extract_key()), _max_load_factor(1.0)   // key提取函数和键值对类型绑定，无法更改，所以不能传入
     {
         _initialize_buckets(n);
     }
@@ -277,12 +319,14 @@ public:
         return std::numeric_limits<size_type>::max();
     }
 
+    // 修改器
+
     /**
      * @brief 不允许重复的插入
      */
     stl::pair<iterator, bool> insert_unique(const value_type & value)
     {
-        resize(_hashtable_elements + 1);        // 判断是否需要重建哈希表
+        _resize(_hashtable_elements + 1);        // 判断是否需要重建哈希表
         return _insert_unique_noresize(value);
     }
 
@@ -291,41 +335,8 @@ public:
      */
     iterator insert_equal(const value_type & value)
     {
-        resize(_hashtable_elements + 1);
+        _resize(_hashtable_elements + 1);
         return _insert_equal_noresize(value);
-    }
-
-    /**
-     * @brief 根据指定的元素个数判断是否需要重建哈希表
-     */
-    void resize(size_type hashtable_elements)
-    {
-        // 根据《STL源码剖析》，判断方法是当哈希表中的元素个数大于桶的大小，就重建
-        const size_type old_elements = _buckets.size();
-        if (hashtable_elements > old_elements) {
-            // 重建哈希表
-            const size_type new_size = hashtable_elements * 2;
-            // TODO 等vector功能完善再修改
-            // stl::vector<node *> new_buckets(new_size, nullptr);
-            stl::vector<node *> new_buckets;
-            new_buckets.reserve(new_size);
-            new_buckets.insert(new_buckets.end(), new_size, nullptr);
-            // 遍历所有桶，拿出节点存放到新的桶中
-            for (size_type i = 0; i < old_elements; ++i) {
-                node * old_first = _buckets[i];
-                while (old_first != nullptr) {
-                    size_type new_index = _hash_key(old_first->_value, new_size);
-                    _buckets[i] = old_first->_next;  // 旧桶指向下一个节点
-                    // 插入到新桶
-                    old_first->_next = new_buckets[new_index];
-                    new_buckets[new_index] = old_first;
-                    // 继续处理下一个节点
-                    old_first = _buckets[i];
-                }
-            }
-            // 交换桶
-            _buckets.swap(new_buckets);
-        }
     }
 
     /**
@@ -343,6 +354,28 @@ public:
             }
             _buckets[i] = nullptr;
         }
+    }
+
+    /**
+     * @brief 删除元素
+     */
+    iterator erase(iterator pos)
+    {
+
+    }
+
+    /**
+     * @brief 交换内容
+     */
+    void swap(hashtable & other)
+    {
+        std::swap(_buckets, other._buckets);
+        std::swap(_node_allocator, other._node_allocator);
+        std::swap(_hashtable_elements, other._hashtable_elements);
+        std::swap(_hash, other._hash);
+        std::swap(_equal, other._equal);
+        std::swap(_extract_key, other._extract_key);
+        std::swap(_max_load_factor, other._max_load_factor);
     }
 
     // 查找
@@ -449,6 +482,44 @@ public:
 
     // 桶接口
 
+    local_iterator begin(size_type n)
+    {
+        node * first = _buckets[n];
+        if (first != nullptr) {
+            return local_iterator(first, this);
+        }
+        return end(n);
+    }
+
+    const_local_iterator begin(size_type n) const
+    {
+        node * first = _buckets[n];
+        if (first != nullptr) {
+            return const_local_iterator(first, const_cast<hashtable *>(this));
+        }
+        return end(n);
+    }
+
+    const_local_iterator cbegin(size_type n) const
+    {
+        return begin(n);
+    }
+
+    local_iterator end(size_type)
+    {
+        return local_iterator();
+    }
+
+    const_local_iterator end(size_type) const
+    {
+        return const_local_iterator();
+    }
+
+    const_local_iterator cend(size_type) const
+    {
+        return end();
+    }
+
     /**
      * @brief 桶的数量
      * @details 返回的是vector的大小
@@ -485,6 +556,70 @@ public:
     size_type bucket(const key_type& key) const
     {
         return _hash_key(key);
+    }
+
+    // 散列策略
+
+    /**
+     * @brief 返回每个桶的平均元素数量
+     */
+    float load_factor() const
+    {
+        return size() / bucket_count();
+    }
+
+    /**
+     * @brief 返回最大加载因子
+     */
+    float max_load_factor() const
+    {
+        return _max_load_factor;
+    }
+
+    /**
+     * @brief 设置最大加载因子
+     */
+    void max_load_factor(float ml)
+    {
+        _max_load_factor = ml;
+    }
+
+    /**
+     * @brief 预留至少指定数量的桶并重新生成散列表
+     * @details 生成一个有n个桶的散列表
+     */
+    void rehash(size_type n)
+    {
+        // TODO 等vector功能完善再修改
+        // stl::vector<node *> new_buckets(n, nullptr);
+        stl::vector<node *> new_buckets;
+        new_buckets.reserve(n);
+        new_buckets.insert(new_buckets.end(), n, nullptr);
+        // 遍历所有桶，拿出节点存放到新的桶中
+        size_type old_elements = bucket_count();
+        for (size_type i = 0; i < old_elements; ++i) {
+            node * old_first = _buckets[i];
+            while (old_first != nullptr) {
+                size_type new_index = _hash_key(old_first->_value, n);
+                _buckets[i] = old_first->_next;  // 旧桶指向下一个节点
+                // 插入到新桶
+                old_first->_next = new_buckets[new_index];
+                new_buckets[new_index] = old_first;
+                // 继续处理下一个节点
+                old_first = _buckets[i];
+            }
+        }
+        // 交换桶
+        _buckets.swap(new_buckets);
+    }
+
+    /**
+     * @brief 为至少指定数量的元素预留空间并重新生成散列表
+     * @details 计算插入count个元素需要多少桶，使得在插入过程中不会resize，并重新生成散列表
+     */
+    void reserve(size_type count)
+    {
+        rehash(std::ceil(count / max_load_factor()));
     }
 
     // 观察器
@@ -572,6 +707,18 @@ protected:
     }
 
     /**
+     * @brief 根据指定的元素个数判断是否需要重建哈希表
+     */
+    void _resize(size_type hashtable_elements)
+    {
+        // 根据《STL源码剖析》，判断方法是当哈希表中的元素个数大于桶的大小，就重建，体现在_max_load_factor = 1.0
+        const size_type old_elements = _buckets.size();
+        if (load_factor() > max_load_factor()) {
+            rehash(hashtable_elements * 2);
+        }
+    }
+
+    /**
      * @brief 无需重建的不重复插入
      */
     stl::pair<iterator, bool> _insert_unique_noresize(const value_type & value)
@@ -618,6 +765,15 @@ protected:
         return iterator(new_node, this);
     }
 };
+
+// 非成员函数
+
+template <class Key, class Value, class Hash, class KeyEqual, class ExtractKey, class Allocator>
+void swap(stl::hashtable<Key, Value, Hash, KeyEqual, ExtractKey, Allocator> & lhs,
+          stl::hashtable<Key, Value, Hash, KeyEqual, ExtractKey, Allocator> & rhs)
+{
+    lhs.swap(rhs);
+}
 
 } // namespace stl
 

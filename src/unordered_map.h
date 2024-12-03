@@ -1,7 +1,6 @@
 #ifndef __UNORDERED_MAP_H__
 #define __UNORDERED_MAP_H__
 
-#include <cmath>
 #include "hashtable.h"
 #include "functional.h"
 
@@ -266,7 +265,7 @@ public:
      */
     float load_factor() const
     {
-        return size() / bucket_count();
+        return _ht.load_factor();
     }
 
     /**
@@ -274,7 +273,7 @@ public:
      */
     float max_load_factor() const
     {
-
+        return _ht.max_load_factor();
     }
 
     /**
@@ -282,7 +281,7 @@ public:
      */
     void max_load_factor(float ml)
     {
-
+        _ht.max_load_factor(ml);
     }
 
     /**
@@ -290,7 +289,7 @@ public:
      */
     void rehash(size_type count)
     {
-        
+        _ht.rehash(count);
     }
 
     /**
@@ -298,7 +297,7 @@ public:
      */
     void reserve(size_type count)
     {
-        rehash(std::ceil(count / max_load_factor()));
+        _ht.reserve(count);
     }
 
     // 观察器
