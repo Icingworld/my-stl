@@ -192,7 +192,6 @@ public:
     public:
         self& operator++()
         {
-            node * old = __hashtable_iterator::_node;
             __hashtable_iterator::_node = __hashtable_iterator::_node->_next;   // 尝试指向下一个节点
             return *this;   // 迭代器是否相等只取决于node，所以如果_node == nullptr，那么一定和end()相等
         }
@@ -359,9 +358,13 @@ public:
     /**
      * @brief 删除元素
      */
-    iterator erase(iterator pos)
+    iterator erase(const_iterator pos)
     {
+        if (pos == end()) {
+            return end();
+        }
 
+        return _erase(pos);
     }
 
     /**
@@ -712,7 +715,6 @@ protected:
     void _resize(size_type hashtable_elements)
     {
         // 根据《STL源码剖析》，判断方法是当哈希表中的元素个数大于桶的大小，就重建，体现在_max_load_factor = 1.0
-        const size_type old_elements = _buckets.size();
         if (load_factor() > max_load_factor()) {
             rehash(hashtable_elements * 2);
         }
@@ -763,6 +765,37 @@ protected:
         _buckets[index] = new_node;
         ++_hashtable_elements;
         return iterator(new_node, this);
+    }
+
+    template <typename T>
+    iterator _erase(T && pos)
+    {
+        value_type to_del = *pos;
+        size_type index = _hash_key(to_del);
+        node * cur = _buckets[index];
+        node * prev = nullptr;
+
+        while (cur && cur != pos._node) {
+            prev = cur;
+            cur = cur->_next;
+        }
+
+        if (cur == nullptr) {
+            throw std::logic_error("Invalid iterator: node not found");
+        }
+
+        if (prev == nullptr) {
+            // 当前节点是桶头，直接修改桶的头指针
+            _buckets[index] = cur->_next;
+        } else {
+            // 当前节点是链表中的非头部节点
+            prev->_next = cur->_next;
+        }
+
+        iterator next_pos(cur->_next, this);
+        _destroy_node(cur);
+        --_hashtable_elements;
+        return next_pos;
     }
 };
 

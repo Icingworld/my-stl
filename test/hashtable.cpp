@@ -50,5 +50,14 @@ int main()
     }
     std::cout << std::endl;
 
+    // 删除2
+    auto it5 = h1.find(2);
+    h1.erase(it5);
+
+    auto it6 = h1.find(2);
+    if (it6 == h1.end()) {
+        std::cout << "not found" << std::endl;
+    }
+
     h1.clear();
 }
