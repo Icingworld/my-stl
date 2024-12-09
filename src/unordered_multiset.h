@@ -1,5 +1,5 @@
-#ifndef __UNORDERED_MAP_H__
-#define __UNORDERED_MAP_H__
+#ifndef __UNORDERED_MULTISET_H__
+#define __UNORDERED_MULTISET_H__
 
 #include "hashtable.h"
 #include "functional.h"
@@ -9,223 +9,141 @@ namespace stl
 
 template <
     class Key,
-    class T,
     class Hash = stl::hash<Key>,
-    class KeyEqual = stl::equal_to<Key>,
-    class Allocator = stl::allocator<stl::pair<const Key, T>>
-> class unordered_map
+    class Equal = stl::equal_to<Key>,
+    class Allocator = stl::allocator<Key>
+> class unordered_multiset
 {
 public:
-    // 类型定义
     using key_type = Key;
-    using mapped_type = T;
-    using value_type = stl::pair<const key_type, mapped_type>;
+    using value_type = Key;
     using size_type = std::size_t;
     using difference_type = std::ptrdiff_t;
     using hasher = Hash;
-    using key_equal = KeyEqual;
+    using key_equal = Equal;
     using allocator_type = Allocator;
     using reference = value_type&;
     using const_reference = const value_type&;
     using pointer = value_type*;
     using const_pointer = const value_type*;
-    using hashtable_type = stl::hashtable<key_type, mapped_type, hasher, key_equal, stl::keyExtractor<stl::pair<const key_type, mapped_type>>, allocator_type>;
+    using hashtable_type = stl::hashtable<key_type, key_type, hasher, key_equal, stl::keyExtractor<stl::pair<const key_type, key_type>>, allocator_type>;
     using iterator = typename hashtable_type::iterator;
     using const_iterator = typename hashtable_type::const_iterator;
     using local_iterator = typename hashtable_type::local_iterator;
     using const_local_iterator = typename hashtable_type::const_local_iterator;
 
 protected:
-    hashtable_type _ht;    // 哈希表
+    hashtable_type _ht;     // 哈希表
 
 public:
-    // 构造函数
-
-    unordered_map()
+    unordered_set()
         : _ht(50, hasher(), key_equal())
     {}
 
 public:
     // 迭代器
 
-    iterator begin() noexcept
+    iterator begin()
     {
         return _ht.begin();
     }
 
-    const_iterator begin() const noexcept
-    {
-        return _ht.begin();
-    }
-
-    const_iterator cbegin() const noexcept
+    const_iterator begin() const
     {
         return _ht.cbegin();
     }
 
-    iterator end() noexcept
+    const_iterator cbegin() const
+    {
+        return _ht.cbegin();
+    }
+
+    iterator end()
     {
         return _ht.end();
     }
 
-    const_iterator end() const noexcept
-    {
-        return _ht.end();
-    }
-
-    const_iterator cend() const noexcept
+    const_iterator end() const
     {
         return _ht.cend();
     }
 
-    // 修改器
-
-    void clear() noexcept
+    const_iterator cend() const
     {
-        _ht.clear();
-    }
-
-    void swap(unordered_map& other) noexcept
-    {
-        _ht.swap(other._ht);
+        return _ht.cend();
     }
 
     // 容量
 
-    bool empty() const noexcept
+    bool empty() const
     {
         return _ht.empty();
     }
 
-    size_type size() const noexcept
+    size_type size() const
     {
         return _ht.size();
     }
 
-    size_type max_size() const noexcept
+    size_type max_size() const
     {
         return _ht.max_size();
     }
 
     // 查找
 
-    /**
-     * @brief 带越界检查访问指定的元素
-     */
-    mapped_type& at(const key_type& key)
-    {
-        return _ht.at(key);
-    }
-
-    /**
-     * @brief 带越界检查访问指定的元素
-     */
-    const mapped_type& at(const key_type& key) const
-    {
-        return _ht.at(key);
-    }
-
-    /**
-     * @brief 访问或插入指定的元素
-     */
-    mapped_type& operator[](const key_type& key)
-    {
-        return _ht[key];
-    }
-
-    /**
-     * @brief 访问或插入指定的元素
-     */
-    const mapped_type& operator[](const key_type& key) const
-    {
-        return _ht[key];
-    }
-
-    /**
-     * @brief 返回匹配特定键的元素数量
-     */
-    size_type count(const key_type& key) const
+    size_type count(const key_type & key) const
     {
         return _ht.count(key);
     }
 
-    /**
-     * @brief 返回匹配特定键的元素
-     */
-    iterator find(const key_type& key)
+    iterator find(const key_type & key)
     {
         return _ht.find(key);
     }
 
-    /**
-     * @brief 返回匹配特定键的元素
-     */
-    const_iterator find(const key_type& key) const
+    const_iterator find(const key_type & key) const
     {
         return _ht.find(key);
     }
 
-    /**
-     * @brief 返回匹配特定键的元素范围
-     */
-    stl::pair<iterator, iterator> equal_range(const key_type& key)
+    stl::pair<iterator, iterator> equal_range(const key_type & key)
     {
         return _ht.equal_range(key);
     }
 
-    /**
-     * @brief 返回匹配特定键的元素范围
-     */
-    stl::pair<const_iterator, const_iterator> equal_range(const key_type& key) const
+    stl::pair<const_iterator, const_iterator> equal_range(const key_type & key) const
     {
         return _ht.equal_range(key);
     }
 
     // 桶接口
 
-    /**
-     * @brief 返回指向指定的桶的开始的迭代器
-     */
     local_iterator begin(size_type n)
     {
         return _ht.begin(n);
     }
 
-    /**
-     * @brief 返回指向指定的桶的开始的迭代器
-     */
     const_local_iterator begin(size_type n) const
     {
-        return _ht.begin(n);
+        return _ht.cbegin(n);
     }
 
-    /**
-     * @brief 返回指向指定的桶的开始的迭代器
-     */
     const_local_iterator cbegin(size_type n) const
     {
         return _ht.cbegin(n);
     }
 
-    /**
-     * @brief 返回指向指定的桶的末尾的迭代器
-     */
     local_iterator end(size_type n)
     {
         return _ht.end(n);
     }
 
-    /**
-     * @brief 返回指向指定的桶的末尾的迭代器
-     */
     const_local_iterator end(size_type n) const
     {
-        return _ht.end(n);
+        return _ht.cend(n);
     }
 
-    /**
-     * @brief 返回指向指定的桶的末尾的迭代器
-     */
     const_local_iterator cend(size_type n) const
     {
         return _ht.cend(n);
@@ -324,6 +242,6 @@ public:
     }
 };
 
-} // namespace stl
+}
 
 #endif

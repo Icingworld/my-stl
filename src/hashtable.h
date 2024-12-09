@@ -363,8 +363,99 @@ public:
         if (pos == end()) {
             return end();
         }
+        return erase(pos, std::next(pos));
+    }
 
-        return _erase(pos);
+    /**
+     * @brief 删除指定范围的元素
+     * @details 相当丑陋
+     */
+    iterator erase(const_iterator first, const_iterator last)
+    {
+        if (first == last) {
+            return end();
+        }
+
+        size_type first_index = _hash_key(*first);
+        size_type last_index = -1;
+        if (last != cend())
+            last_index = _hash_key(*last);
+        node* cur = first._node;
+
+        // 同一个桶
+        if (first_index == last_index || last == cend()) {
+            node* pre = nullptr;
+            while (cur != last._node) {
+                node* next = cur->_next;
+                if (pre == nullptr) {
+                    _buckets[first_index] = next; // 更新桶头指针
+                } else {
+                    pre->_next = next; // 更新链表指针
+                }
+                _destroy_node(cur);
+                --_hashtable_elements;
+                cur = next;
+            }
+            return iterator(last._node, this);
+        }
+
+        // 跨桶删除
+        for (size_type i = first_index; i <= last_index; ++i) {
+            node* pre = nullptr;
+            node* current = _buckets[i];
+
+            if (i == first_index) {
+                // 第一个桶：删除从 first 到桶尾
+                while (current && current != last._node) {
+                    node* next = current->_next;
+                    if (current == cur) {
+                        _buckets[i] = next; // 更新桶头
+                    } else {
+                        pre->_next = next; // 更新链表指针
+                    }
+                    _destroy_node(current);
+                    --_hashtable_elements;
+                    current = next;
+                }
+                cur = nullptr; // 标记后续不需要处理起始节点
+            } else if (i == last_index) {
+                // 最后一个桶：删除到 last 节点之前
+                while (current && current != last._node) {
+                    node* next = current->_next;
+                    if (pre == nullptr) {
+                        _buckets[i] = next;
+                    } else {
+                        pre->_next = next;
+                    }
+                    _destroy_node(current);
+                    --_hashtable_elements;
+                    current = next;
+                }
+            } else {
+                // 中间桶：清空整个桶
+                while (current) {
+                    node* next = current->_next;
+                    _destroy_node(current);
+                    --_hashtable_elements;
+                    current = next;
+                }
+                _buckets[i] = nullptr; // 清空桶头指针
+            }
+        }
+
+        return iterator(last._node, this);
+    }
+
+
+    /**
+     * @brief 删除指定key的元素
+     */
+    size_type erase(const key_type & key)
+    {
+        size_type n = count(key);
+        auto pair = equal_range(key);
+        erase(pair.first, pair.second);
+        return n;
     }
 
     /**

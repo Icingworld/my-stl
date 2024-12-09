@@ -1,5 +1,5 @@
-#ifndef __UNORDERED_MAP_H__
-#define __UNORDERED_MAP_H__
+#ifndef __UNORDERED_MULTIMAP_H__
+#define __UNORDERED_MULTIMAP_H__
 
 #include "hashtable.h"
 #include "functional.h"
@@ -13,10 +13,9 @@ template <
     class Hash = stl::hash<Key>,
     class KeyEqual = stl::equal_to<Key>,
     class Allocator = stl::allocator<stl::pair<const Key, T>>
-> class unordered_map
+> class unordered_multimap
 {
 public:
-    // 类型定义
     using key_type = Key;
     using mapped_type = T;
     using value_type = stl::pair<const key_type, mapped_type>;
@@ -108,38 +107,6 @@ public:
     }
 
     // 查找
-
-    /**
-     * @brief 带越界检查访问指定的元素
-     */
-    mapped_type& at(const key_type& key)
-    {
-        return _ht.at(key);
-    }
-
-    /**
-     * @brief 带越界检查访问指定的元素
-     */
-    const mapped_type& at(const key_type& key) const
-    {
-        return _ht.at(key);
-    }
-
-    /**
-     * @brief 访问或插入指定的元素
-     */
-    mapped_type& operator[](const key_type& key)
-    {
-        return _ht[key];
-    }
-
-    /**
-     * @brief 访问或插入指定的元素
-     */
-    const mapped_type& operator[](const key_type& key) const
-    {
-        return _ht[key];
-    }
 
     /**
      * @brief 返回匹配特定键的元素数量
@@ -322,8 +289,9 @@ public:
     {
         return _ht.key_eq();
     }
+
 };
 
-} // namespace stl
+}
 
 #endif
